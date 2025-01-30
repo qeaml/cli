@@ -16,7 +16,8 @@ typedef struct qmlCliParamPairS {
 } qmlCliParamPair;
 
 typedef struct qmlCliS {
-  int init;
+  /* non-zero if windows console has been initialized */
+  short winInit;
   char *programName;
   int posArgC;
   char *posArgV[QML_CLI_MAX_POS_ARGS];
@@ -28,15 +29,16 @@ typedef struct qmlCliS {
 
 static qmlCli gCli;
 
-void qmlCliInit(void)
+void qmlCliWinInit(void)
 {
-  if(gCli.init++ > 0) {
+#ifdef _WIN32
+  if(gCli.winInit++ > 0) {
     return;
   }
-#if _WIN32
-  HANDLE hStdOut = GetStdHandle(STD_OUTPUT_HANDLE);
-  DWORD mode = GetConsoleMode(hStdOut, &mode);
-  SetConsoleMode(hStdOut, mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING);
+  HANDLE stdOut = GetStdHandle(STD_OUTPUT_HANDLE);
+  DWORD mode;
+  GetConsoleMode(stdOut, &mode);
+  SetConsoleMode(stdOut, mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING);
   /* we don't care enough to restore it, cry about it */
 #endif
 }
@@ -77,7 +79,9 @@ static void qmlCliAddParam(char *arg, int nameLen)
 
 void qmlCliParse(int argc, char **argv)
 {
-  qmlCliInit();
+#ifdef _WIN32
+  qmlCliWinInit();
+#endif
 
   gCli.programName = NULL;
   gCli.posArgC = 0;

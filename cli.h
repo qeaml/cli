@@ -32,12 +32,12 @@ CLI parser, v1.0
 #define QML_CLI_MAX_PARAMS   256
 
 /**
- * @brief Initialize the terminal/console.
+ * @brief Initialize the Windows Console.
  *
- * Only affects Windows. Called by qmlCliParse().
+ * Called by qmlCliParse().
  */
 QML_CLI_API
-void qmlCliInit(void);
+void qmlCliWinInit(void);
 
 /**
  * @brief Parse command-line.
@@ -94,7 +94,7 @@ QML_CLI_API
 char *qmlCliParam(char *param);
 
 #ifdef QML_CLI_SHORTHANDS
-#define cliInit qmlCliInit
+#define cliWinInit qmlCliWinInit
 #define cliParse qmlCliParse
 #define cliProgramName qmlCliProgramName
 #define cliPosC qmlCliPosC
