@@ -80,6 +80,26 @@ void testAll()
   TEST_PASSED;
 }
 
+void testResponse()
+{
+  TEST_CASE("non-response", "@response.txt");
+
+  assert(cliProgramName() != NULL);
+  assert(strcmp(cliProgramName(), "test") == 0);
+  assert(cliPosC() == 8);
+  assert(strcmp(cliPos(0), "non-response") == 0);
+  assert(strcmp(cliPos(1), "response") == 0);
+  assert(strcmp(cliPos(7), "foo bar") == 0);
+  assert(cliFlag("flag-too"));
+  assert(cliFlag("1203"));
+  assert(!cliFlag("non-response"));
+  assert(strcmp(cliParam("param"), "123") == 0);
+  assert(strcmp(cliParam("quote"), "\"") == 0);
+  assert(cliParam("non-response") == NULL);
+
+  TEST_PASSED;
+}
+
 int main(int argc, char *argv[])
 {
   /* use default memory functions */
@@ -89,6 +109,7 @@ int main(int argc, char *argv[])
   testParams();
   testParamsAndFlags();
   testAll();
+  testResponse();
   qmlCliFree();
   return 0;
 }

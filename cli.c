@@ -7,6 +7,10 @@
 #include <stdlib.h>
 #endif
 
+#ifndef QML_CLI_NO_RESPONSE_FILE
+#include <stdio.h>
+#endif
+
 #if _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
@@ -35,6 +39,8 @@ typedef struct qmlCliS {
   char **flags;
   int paramCount, paramCap;
   qmlCliParamPair *params;
+  int responseCount, responseCap;
+  char **responseFiles;
 } qmlCli;
 
 static qmlCli gCli;
@@ -60,12 +66,26 @@ void qmlCliFree()
 {
   if(gCli.posCap > 0 && gCli.posArgs != NULL) {
     gCli.free(gCli.posArgs);
+    gCli.posCount = 0;
+    gCli.posCap = 0;
   }
   if(gCli.flagCap > 0 && gCli.flags != NULL) {
     gCli.free(gCli.flags);
+    gCli.flagCount = 0;
+    gCli.flagCap = 0;
   }
   if(gCli.paramCap > 0 && gCli.params != NULL) {
     gCli.free(gCli.params);
+    gCli.paramCount = 0;
+    gCli.paramCap = 0;
+  }
+  if(gCli.responseCap > 0 && gCli.responseFiles != NULL) {
+    for(int i = 0; i < gCli.responseCount; ++i) {
+      gCli.free(gCli.responseFiles[i]);
+    }
+    gCli.responseCount = 0;
+    gCli.responseCap = 0;
+    gCli.free(gCli.responseFiles);
   }
 }
 
@@ -81,6 +101,8 @@ static void qmlCliMemInit()
     gCli.flags = gStaticFlags;
     gCli.paramCap = 0;
     gCli.params = gStaticParams;
+    gCli.responseCap = 0;
+    gCli.responseFiles = NULL; /* can't use response files with static memory */
     return;
   }
 
@@ -100,6 +122,11 @@ static void qmlCliMemInit()
     gCli.paramCap = QML_CLI_MAX_PARAMS;
     gCli.params = malloc(gCli.paramCap * sizeof(gCli.params[0]));
   }
+
+  if(gCli.responseFiles == NULL) {
+    gCli.responseCap = 4;
+    gCli.responseFiles = malloc(gCli.responseCap * sizeof(gCli.responseFiles[0]));
+  }
 }
 
 void qmlCliWinInit(void)
@@ -113,6 +140,53 @@ void qmlCliWinInit(void)
   GetConsoleMode(stdOut, &mode);
   SetConsoleMode(stdOut, mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING);
   /* we don't care enough to restore it, cry about it */
+#endif
+}
+
+static char *qmlCliLoadResponseFile(char *fileName, size_t *fileSize)
+{
+#ifdef QML_CLI_NO_RESPONSE_FILE
+  return NULL;
+#else
+  /* we need to allocate memory to store file contents */
+  if(gCli.alloc == NULL || gCli.free == NULL) {
+    return NULL;
+  }
+
+  FILE *fp = fopen(fileName, "rt");
+  if(fp == NULL) {
+    return NULL;
+  }
+
+  fseek(fp, 0, SEEK_END);
+  int size = ftell(fp);
+  if(size <= 0) {
+    return NULL;
+  }
+  fseek(fp, 0, SEEK_SET);
+
+  char *data = gCli.alloc((size+1)*sizeof(char)); /* extra space for a NUL */
+
+  unsigned long count = fread(data, sizeof(char), size , fp);
+  fclose(fp);
+  if(count < size) {
+    gCli.free(data);
+    return NULL;
+  }
+  /* ensure it's NUL terminated */
+  data[size] = '\0';
+
+  int incrCount = gCli.responseCount + 1;
+  if(incrCount > gCli.responseCap) {
+    gCli.responseCap *= 2;
+    gCli.responseFiles = gCli.realloc(gCli.responseFiles, gCli.responseCap*sizeof(gCli.responseFiles[0]));
+  }
+  gCli.responseFiles[gCli.responseCount++] = data;
+
+  if(fileSize != NULL) {
+    *fileSize = (size_t)size;
+  }
+  return data;
 #endif
 }
 
@@ -180,6 +254,91 @@ static void qmlCliAddParam(char *arg, int nameLen)
   pair->nameLen = nameLen;
 }
 
+static void qmlCliAddArg(char *arg);
+
+static int qmlCliIsSpace(char chr)
+{
+  return chr == ' ' || chr == '\t' || chr == '\r' || chr == '\n';
+}
+
+static size_t qmlCliParseArg(char *str)
+{
+  size_t advance = 0;
+  while(qmlCliIsSpace(str[advance])) {
+    ++advance;
+  }
+  if(str[advance] == '\0') {
+    return advance;
+  }
+
+  size_t start = advance;
+  if(str[start] == '"' || str[start] == '\'') {
+    char quote = str[start++];
+    while(1) {
+      ++advance;
+      if(str[advance] == '\0') {
+        break;
+      }
+      if(str[advance] != quote) {
+        continue;
+      }
+      /* allow quotes to be escaped */
+      if(str[advance - 1] == '\\') {
+        continue;
+      }
+      break;
+    }
+  } else {
+    while(!qmlCliIsSpace(str[advance])) {
+      ++advance;
+    }
+  }
+
+  str[advance] = '\0';
+  qmlCliAddArg(&str[start]);
+
+  return advance;
+}
+
+static void qmlCliParseResponseFile(char *fileName)
+{
+  size_t size;
+  char *data = qmlCliLoadResponseFile(fileName, &size);
+  if(data == NULL) {
+    return;
+  }
+
+  size_t i = 0;
+  while(i < size) {
+    i += qmlCliParseArg(&data[i]);
+    ++i;
+  }
+}
+
+static void qmlCliAddArg(char *arg)
+{
+  if(arg[0] == '@') {
+    qmlCliParseResponseFile(&arg[1]);
+    return;
+  }
+
+  if(arg[0] != '-') {
+    qmlCliAddPos(arg);
+    return;
+  }
+
+  while(arg[0] == '-') {
+    ++arg;
+  }
+
+  int nameLen = cliCliGetParamNameLen(arg);
+  if(nameLen == -1) {
+    qmlCliAddFlag(arg);
+  } else {
+    qmlCliAddParam(arg, nameLen);
+  }
+}
+
 void qmlCliParse(int argc, char **argv)
 {
   qmlCliWinInit();
@@ -195,25 +354,8 @@ void qmlCliParse(int argc, char **argv)
   }
 
   gCli.programName = argv[0];
-
   for(int i = 1; i < argc; ++i) {
-    char *arg = argv[i];
-
-    if(arg[0] != '-') {
-      qmlCliAddPos(arg);
-      continue;
-    }
-
-    while(arg[0] == '-') {
-      ++arg;
-    }
-
-    int nameLen = cliCliGetParamNameLen(arg);
-    if(nameLen == -1) {
-      qmlCliAddFlag(arg);
-    } else {
-      qmlCliAddParam(arg, nameLen);
-    }
+    qmlCliAddArg(argv[i]);
   }
 }
 
