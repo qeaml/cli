@@ -103,13 +103,13 @@ void testResponse()
 int main(int argc, char *argv[])
 {
   /* use default memory functions */
-  qmlCliSetMemoryFuncs(NULL, NULL, NULL);
+  cliSetMemoryFuncs(NULL, NULL, NULL);
   testPosArgs();
   testFlags();
   testParams();
   testParamsAndFlags();
   testAll();
   testResponse();
-  qmlCliFree();
+  cliFree();
   return 0;
 }

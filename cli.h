@@ -151,6 +151,8 @@ char *qmlCliParam(char *param);
 
 #ifdef QML_CLI_SHORTHANDS
 #define cliWinInit qmlCliWinInit
+#define cliSetMemoryFuncs qmlCliSetMemoryFuncs
+#define cliFree qmlCliFree
 #define cliParse qmlCliParse
 #define cliProgramName qmlCliProgramName
 #define cliPosC qmlCliPosC
