@@ -7,6 +7,8 @@ CLI parser, v1.0
 #ifndef QML_CLI_H_
 #define QML_CLI_H_
 
+#include <stddef.h>
+
 #ifndef QML_CLI_API
 #define QML_CLI_API
 #endif
@@ -38,6 +40,42 @@ CLI parser, v1.0
  */
 QML_CLI_API
 void qmlCliWinInit(void);
+
+typedef void*(*qmlCliAllocPfn)(size_t);
+typedef void*(*qmlCliReallocPfn)(void*,size_t);
+typedef void(*qmlCliFreePfn)(void*);
+
+/**
+ * @brief Set the memory management functions used by the library.
+ *
+ * If you call this function but leave any of the three function pointers as
+ * `NULL`, then the appropriate standard library function will be used.
+ *
+ * Calling this function allows the library to dynamically allocate and
+ * reallocate memory as needed. This comes with some upsides:
+ *
+ * - Effectively infinite arguments (the library limits you to 256 of each by
+ *   default)
+ *
+ * But it has its downsides too:
+ *
+ * - You must call qmlCliFree() once you're done, otherwise the memory allocated
+ *   by the library will leak.
+ *
+ * @param allocPfn Custom allocation function or `NULL` for `malloc()`
+ * @param reallocPfn Custom reallocation function or `NULL` for `realloc()`
+ * @param freePfn Custom free function or `NULL` for `free()`
+ */
+QML_CLI_API
+void qmlCliSetMemoryFuncs(qmlCliAllocPfn allocPfn, qmlCliReallocPfn reallocPfn, qmlCliFreePfn freePfn);
+
+/**
+ * @brief Free memory allocated by the library.
+ *
+ * This only has to be called if qmlCliSetMemoryFuncs() was called beforehand.
+ * All data is stored in static memory otherwise.
+ */
+void qmlCliFree();
 
 /**
  * @brief Parse command-line.

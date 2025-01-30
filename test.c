@@ -82,10 +82,13 @@ void testAll()
 
 int main(int argc, char *argv[])
 {
+  /* use default memory functions */
+  qmlCliSetMemoryFuncs(NULL, NULL, NULL);
   testPosArgs();
   testFlags();
   testParams();
   testParamsAndFlags();
   testAll();
+  qmlCliFree();
   return 0;
 }
