@@ -4,7 +4,7 @@ response file positional 'argument'
 hello        world
 
 
-"--quote=\""
+'--quote="'
 
 
   "foo bar"

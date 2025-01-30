@@ -1,4 +1,26 @@
-/* CLI v1.0 */
+/*
+CLI v1.0
+--------
+
+Should compile with any C99 compiler.
+
+If you don't want CLI to use <stdlib.h>:
+  #define QML_CLI_NO_STDLIB
+This means that if you pass NULL to qmlCliSetMemoryFuncs, there will not be
+any fallback functions and no memory will be allocated.
+
+If you don't want to use response files (which requires using fopen() etc.):
+  #define QML_CLI_NO_RESPONSE_FILE
+This will also disable warnings output in case you attempt to load a response
+file.
+
+It is best to set these via compiler switches, for example:
+  GCC: -DQML_CLI_NO_STDLIB
+  MSVC: /DQML_CLI_NO_RESPONSE_FILE
+Or in your build system, in Bip for example:
+  [cli.c]
+  define = { QML_CLI_NO_STDLIB = 1 }
+*/
 
 #include "cli.h"
 #include <string.h>
@@ -282,10 +304,6 @@ static size_t qmlCliParseArg(char *str)
       if(str[advance] != quote) {
         continue;
       }
-      /* allow quotes to be escaped */
-      if(str[advance - 1] == '\\') {
-        continue;
-      }
       break;
     }
   } else {
@@ -305,6 +323,14 @@ static void qmlCliParseResponseFile(char *fileName)
   size_t size;
   char *data = qmlCliLoadResponseFile(fileName, &size);
   if(data == NULL) {
+    /* we don't include <stdio.h> if QML_CLI_NO_RESPONSE_FILE is defined,
+       therefore fprintf is unavailable. not like the user would care if that
+       macro is defined anyway */
+    #ifndef QML_CLI_NO_RESPONSE_FILE
+    fprintf(stderr,
+      "\x1b[33mCould not load response file '%s'.\x1b[0m\n",
+      fileName);
+    #endif
     return;
   }
 
