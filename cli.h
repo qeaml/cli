@@ -41,8 +41,25 @@ CLI parser, v1.0
 QML_CLI_API
 void qmlCliWinInit(void);
 
+/**
+ * @brief Memory allocation function.
+ *
+ * Behaves like the standard `malloc()`.
+ */
 typedef void*(*qmlCliAllocPfn)(size_t);
+
+/**
+ * @brief Memory reallocation function.
+ *
+ * Behaves like the standard `realloc()`.
+ */
 typedef void*(*qmlCliReallocPfn)(void*,size_t);
+
+/**
+ * @brief Memory free function.
+ *
+ * Behaves like the standard `free()`.
+ */
 typedef void(*qmlCliFreePfn)(void*);
 
 /**
@@ -75,6 +92,7 @@ void qmlCliSetMemoryFuncs(qmlCliAllocPfn allocPfn, qmlCliReallocPfn reallocPfn, 
  * This only has to be called if qmlCliSetMemoryFuncs() was called beforehand.
  * All data is stored in static memory otherwise.
  */
+QML_CLI_API
 void qmlCliFree();
 
 /**
